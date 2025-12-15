@@ -8,7 +8,7 @@ char buf[1024];
 int match(char*, char*);
 
 void
-grep(char *pattern, int fd)
+grep(char *pattern, int fd) // pattern: 匹配的正则表达式 fd: 文件描述符
 {
   int n, m;
   char *p, *q;
