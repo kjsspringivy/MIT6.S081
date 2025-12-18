@@ -79,14 +79,15 @@ kvminithart()
 //    0..11 -- 12 bits of byte offset within the page.
 pte_t *
 walk(pagetable_t pagetable, uint64 va, int alloc)
+// alloc: 0: 只查找，找不到返回NULL  1: 查找并分配，如果中间却页表就创建
 {
   if(va >= MAXVA)
-    panic("walk");
+    panic("walk");  //内核崩溃
 
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
     if(*pte & PTE_V) {
-      pagetable = (pagetable_t)PTE2PA(*pte);
+      pagetable = (pagetable_t)PTE2PA(*pte); // 找到下一级页表的物理地址，并转换为指针
     } else {
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
@@ -102,6 +103,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 // Can only be used to look up user pages.
 uint64
 walkaddr(pagetable_t pagetable, uint64 va)
+// 将用户空间的虚拟地址 va 转换为对应的物理地址
 {
   pte_t *pte;
   uint64 pa;
@@ -109,10 +111,10 @@ walkaddr(pagetable_t pagetable, uint64 va)
   if(va >= MAXVA)
     return 0;
 
-  pte = walk(pagetable, va, 0);
+  pte = walk(pagetable, va, 0);  // 获取 va 对应的 PTE
   if(pte == 0)
     return 0;
-  if((*pte & PTE_V) == 0)
+  if((*pte & PTE_V) == 0)  // *pte 表示对应的页表项内容
     return 0;
   if((*pte & PTE_U) == 0)
     return 0;
@@ -136,7 +138,7 @@ kvmmap(pagetable_t kpgtbl, uint64 va, uint64 pa, uint64 sz, int perm)
 // allocate a needed page-table page.
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
-{
+{ // 为虚拟地址 va 开始的连续虚拟页创建页表项，映射到物理地址 pa 开始的连续物理页
   uint64 a, last;
   pte_t *pte;
 
@@ -188,9 +190,7 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 
 // create an empty user page table.
 // returns 0 if out of memory.
-pagetable_t
-uvmcreate()
-{
+pagetable_t uvmcreate() {
   pagetable_t pagetable;
   pagetable = (pagetable_t) kalloc();
   if(pagetable == 0)
@@ -370,15 +370,18 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 // Return 0 on success, -1 on error.
 int
 copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
+/* 
+  pagetable: 用户页表（指针）dst: 内核空间的目标地址（指针）srcva: 用户空间的源地址（虚拟地址）len: 要复制的字节数
+*/
 {
   uint64 n, va0, pa0;
 
   while(len > 0){
-    va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
+    va0 = PGROUNDDOWN(srcva);  // 计算 srcva 所在页面的起始虚拟地址
+    pa0 = walkaddr(pagetable, va0);  // 查阅页表，找到该虚拟页对应的物理页起始地址
+    if(pa0 == 0)  // 表明无效
       return -1;
-    n = PGSIZE - (srcva - va0);
+    n = PGSIZE - (srcva - va0);  // 计算从 srcva 到该页末尾的字节数
     if(n > len)
       n = len;
     memmove(dst, (void *)(pa0 + (srcva - va0)), n);

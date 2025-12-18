@@ -9,18 +9,25 @@
 
 // Fetch the uint64 at addr from the current process.
 int
-fetchaddr(uint64 addr, uint64 *ip)
+fetchaddr(uint64 addr, uint64 *ip)  
+/*
+  从当前进程的用户空间读取一个64位整数（地址）到内核空间ip
+  addr: 虚拟地址  ip: 作为输出容器，存放读取到的值addr
+*/
 {
-  struct proc *p = myproc();
+  struct proc *p = myproc();  // 获取当前进程结构体指针
   if(addr >= p->sz || addr+sizeof(uint64) > p->sz)
     return -1;
-  if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0)
+  if(copyin(p->pagetable, (char *)ip, addr, sizeof(*ip)) != 0) 
+  // 从用户页表找到虚拟地址 addr 对应的物理地址，并将该地址处的 sizeof(*ip) 字节数据复制到内核空间的 ip 指向的位置
     return -1;
   return 0;
 }
 
 // Fetch the nul-terminated string at addr from the current process.
 // Returns length of string, not including nul, or -1 for error.
+// 从当前进程获取地址 addr 处以空字符结尾的字符串。 
+// 返回字符串长度（不包括空字符），如果出错则返回 -1。
 int
 fetchstr(uint64 addr, char *buf, int max)
 {
@@ -31,9 +38,9 @@ fetchstr(uint64 addr, char *buf, int max)
   return strlen(buf);
 }
 
-static uint64
-argraw(int n)
-{
+static uint64 argraw(int n) {
+  // 从当前进程的 Trapframe 中获取第 n 个系统调用参数的原始值。
+  // n: 0-5
   struct proc *p = myproc();
   switch (n) {
   case 0:
@@ -49,13 +56,14 @@ argraw(int n)
   case 5:
     return p->trapframe->a5;
   }
-  panic("argraw");
+  panic("argraw");  // 遇到不可恢复错误，CPU进入死循环，防止继续运行带来的错误
   return -1;
 }
 
 // Fetch the nth 32-bit system call argument.
 int
 argint(int n, int *ip)
+// 获取第 n 个系统调用参数，并将其作为一个 32 位整数（int）返回。
 {
   *ip = argraw(n);
   return 0;
@@ -66,6 +74,7 @@ argint(int n, int *ip)
 // copyin/copyout will do that.
 int
 argaddr(int n, uint64 *ip)
+// 获取第 n 个系统调用参数，并将其作为一个地址（uint64）返回。
 {
   *ip = argraw(n);
   return 0;
@@ -76,6 +85,7 @@ argaddr(int n, uint64 *ip)
 // Returns string length if OK (including nul), -1 if error.
 int
 argstr(int n, char *buf, int max)
+// 获取第 n 个系统调用参数，并将其作为一个以空字符结尾的字符串返回。
 {
   uint64 addr;
   if(argaddr(n, &addr) < 0)
@@ -137,7 +147,7 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
-    p->trapframe->a0 = syscalls[num]();
+    p->trapframe->a0 = syscalls[num]();  // 执行系统调用，并获取返回值
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

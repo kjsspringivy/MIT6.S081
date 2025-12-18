@@ -332,22 +332,22 @@ sfence_vma()
 }
 
 
-#define PGSIZE 4096 // bytes per page
+#define PGSIZE 4096 // bytes per page  一页页表的大小
 #define PGSHIFT 12  // bits of offset within a page
 
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
-#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
+#define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))  // 计算当前虚拟地址所在页面的起始虚拟地址
 
-#define PTE_V (1L << 0) // valid
+#define PTE_V (1L << 0) // valid  是否有效标志位
 #define PTE_R (1L << 1)
 #define PTE_W (1L << 2)
 #define PTE_X (1L << 3)
-#define PTE_U (1L << 4) // 1 -> user can access
+#define PTE_U (1L << 4) // 1 -> user can access 是否为用户可用的标志位
 
 // shift a physical address to the right place for a PTE.
 #define PA2PTE(pa) ((((uint64)pa) >> 12) << 10)
 
-#define PTE2PA(pte) (((pte) >> 10) << 12)
+#define PTE2PA(pte) (((pte) >> 10) << 12) // 从 PTE 中提取物理页的起始地址
 
 #define PTE_FLAGS(pte) ((pte) & 0x3FF)
 
@@ -363,4 +363,4 @@ sfence_vma()
 #define MAXVA (1L << (9 + 9 + 9 + 12 - 1))
 
 typedef uint64 pte_t;
-typedef uint64 *pagetable_t; // 512 PTEs
+typedef uint64 *pagetable_t; // 512 PTEs  

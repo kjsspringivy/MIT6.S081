@@ -65,8 +65,9 @@ kfree(void *pa)
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
-void *
+void *  // 指向物理地址
 kalloc(void)
+// 分配一个 4KB 的物理页作为新的内存页 
 {
   struct run *r;
 

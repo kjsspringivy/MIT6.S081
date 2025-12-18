@@ -1,7 +1,7 @@
 #include "types.h"
 
 void*
-memset(void *dst, int c, uint n)
+memset(void *dst, int c, uint n)  // 将值 c 的低8位复制到 dst 指向的内存区域的前 n 个字节
 {
   char *cdst = (char *) dst;
   int i;

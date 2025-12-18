@@ -1,7 +1,8 @@
 // Saved registers for kernel context switches.
+// 内核上下文切换时需要保存的寄存器
 struct context {
-  uint64 ra;
-  uint64 sp;
+  uint64 ra;  // 返回地址, 函数返回时，回到哪里去执行
+  uint64 sp;  // 内核栈指针，指向内核栈的栈顶
 
   // callee-saved
   uint64 s0;
@@ -41,14 +42,15 @@ extern struct cpu cpus[NCPU];
 // the trapframe includes callee-saved user registers like s0-s11 because the
 // return-to-user path via usertrapret() doesn't return through
 // the entire kernel call stack.
+// 用户态向内核态切换时的寄存器保存
 struct trapframe {
   /*   0 */ uint64 kernel_satp;   // kernel page table
   /*   8 */ uint64 kernel_sp;     // top of process's kernel stack
   /*  16 */ uint64 kernel_trap;   // usertrap()
-  /*  24 */ uint64 epc;           // saved user program counter
+  /*  24 */ uint64 epc;           // saved user program counter 内核态返回用户态时的虚拟地址
   /*  32 */ uint64 kernel_hartid; // saved kernel tp
-  /*  40 */ uint64 ra;
-  /*  48 */ uint64 sp;
+  /*  40 */ uint64 ra;  // 子进程返回父进程时的返回地址
+  /*  48 */ uint64 sp;  // 用户栈指针
   /*  56 */ uint64 gp;
   /*  64 */ uint64 tp;
   /*  72 */ uint64 t0;
@@ -84,7 +86,7 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
-  struct spinlock lock;
+  struct spinlock lock;  // 进程私有锁，调度器运行时持有锁
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
@@ -97,12 +99,12 @@ struct proc {
   struct proc *parent;         // Parent process
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;               // Virtual address of kernel stack
-  uint64 sz;                   // Size of process memory (bytes)
-  pagetable_t pagetable;       // User page table
+  uint64 kstack;               // Virtual address of kernel stack  内核栈的起始虚拟地址
+  uint64 sz;                   // Size of process memory (bytes) 进程用户内存的上限
+  pagetable_t pagetable;       // User page table  用户页表，64位的指针
   struct trapframe *trapframe; // data page for trampoline.S
   struct context context;      // swtch() here to run process
   struct file *ofile[NOFILE];  // Open files
-  struct inode *cwd;           // Current directory
-  char name[16];               // Process name (debugging)
+  struct inode *cwd;           // Current directory  工作目录，方便相对路径查找
+  char name[16];               // Process name (debugging)  进程名
 };
