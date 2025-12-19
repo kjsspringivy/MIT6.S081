@@ -281,6 +281,7 @@ int fork(void) {
     return -1;
   }
   np->sz = p->sz;
+  np->trace_mask = p->trace_mask;  // 继承父进程的系统调用跟踪掩码
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);

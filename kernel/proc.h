@@ -107,4 +107,7 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory  工作目录，方便相对路径查找
   char name[16];               // Process name (debugging)  进程名
+
+  // trace system call mask
+  int trace_mask;              // 系统调用跟踪掩码
 };
