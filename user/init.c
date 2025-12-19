@@ -11,9 +11,7 @@
 
 char *argv[] = { "sh", 0 };
 
-int
-main(void)
-{
+int main(void) {
   int pid, wpid;
 
   if(open("console", O_RDWR) < 0){
@@ -26,11 +24,11 @@ main(void)
   for(;;){
     printf("init: starting sh\n");
     pid = fork();
-    if(pid < 0){
+    if(pid < 0){  // 出错
       printf("init: fork failed\n");
       exit(1);
     }
-    if(pid == 0){
+    if(pid == 0){  // 子进程
       exec("sh", argv);
       printf("init: exec sh failed\n");
       exit(1);

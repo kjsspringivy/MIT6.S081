@@ -8,13 +8,13 @@ void main();
 void timerinit();
 
 // entry.S needs one stack per CPU.
-__attribute__ ((aligned (16))) char stack0[4096 * NCPU];
+__attribute__ ((aligned (16))) char stack0[4096 * NCPU];  // 强制对齐，确保每个CPU的栈起始地址是16字节对齐
 
 // a scratch area per CPU for machine-mode timer interrupts.
-uint64 timer_scratch[NCPU][5];
+uint64 timer_scratch[NCPU][5];  // 每个CPU预留一小块内存
 
 // assembly code in kernelvec.S for machine-mode timer interrupt.
-extern void timervec();
+extern void timervec();  // 寄存器保存代码
 
 // entry.S jumps here in machine mode on stack0.
 void
@@ -28,10 +28,10 @@ start()
 
   // set M Exception Program Counter to main, for mret.
   // requires gcc -mcmodel=medany
-  w_mepc((uint64)main);
+  w_mepc((uint64)main);  // 设置CPU跳转返回地址
 
   // disable paging for now.
-  w_satp(0);
+  w_satp(0);  // 关闭分页机制, 使用物理地址访问内存
 
   // delegate all interrupts and exceptions to supervisor mode.
   w_medeleg(0xffff);

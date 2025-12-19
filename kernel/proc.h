@@ -52,7 +52,7 @@ struct trapframe {
   /*  40 */ uint64 ra;  // 子进程返回父进程时的返回地址
   /*  48 */ uint64 sp;  // 用户栈指针
   /*  56 */ uint64 gp;
-  /*  64 */ uint64 tp;
+  /*  64 */ uint64 tp;  // 线程指针，存放 cpu id 
   /*  72 */ uint64 t0;
   /*  80 */ uint64 t1;
   /*  88 */ uint64 t2;
