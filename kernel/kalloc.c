@@ -20,13 +20,13 @@ struct run {
 
 struct {
   struct spinlock lock;
-  struct run *freelist;
-} kmem;
+  struct run *freelist;  // 空闲内存链表头指针
+} kmem;  // 物理内存分配器
 
 void
 kinit()
 {
-  initlock(&kmem.lock, "kmem");
+  initlock(&kmem.lock, "kmem");  // 初始化物理内存分配器的锁
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -80,4 +80,18 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+ 
+uint64 kfreemem(void) {
+  uint64 free_mem = 0;
+  struct run *r;
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  while (r) {
+    free_mem += PGSIZE;
+    r = r->next;
+  }
+  release(&kmem.lock);
+
+  return free_mem;
 }

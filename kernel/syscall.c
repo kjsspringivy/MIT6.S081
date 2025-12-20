@@ -74,7 +74,6 @@ argint(int n, int *ip)
 // copyin/copyout will do that.
 int
 argaddr(int n, uint64 *ip)
-// 获取第 n 个系统调用参数，并将其作为一个地址（uint64）返回。
 {
   *ip = argraw(n);
   return 0;
@@ -115,6 +114,7 @@ extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
 extern uint64 sys_trace(void);
+extern uint64 sys_sysinfo(void);
 
 
 static uint64 (*syscalls[])(void) = {
@@ -140,6 +140,7 @@ static uint64 (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_trace]   sys_trace,
+[SYS_sysinfo] sys_sysinfo,
 };
 
 static char *syscalls_names[] = {
@@ -166,6 +167,7 @@ static char *syscalls_names[] = {
 [SYS_mkdir]   "mkdir",
 [SYS_close]   "close",
 [SYS_trace]   "trace",
+[SYS_sysinfo] "sysinfo",
 };
 
 void
