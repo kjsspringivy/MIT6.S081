@@ -43,6 +43,7 @@ freerange(void *pa_start, void *pa_end)
 // which normally should have been returned by a
 // call to kalloc().  (The exception is when
 // initializing the allocator; see kinit above.)
+// 释放一页物理内存，并将其重新挂载到全局空闲链表 (freelist) 上。
 void
 kfree(void *pa)
 {
@@ -51,8 +52,8 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  // Fill with junk to catch dangling refs. 填充垃圾数据
+  memset(pa, 1, PGSIZE);  // 每个字节都设为1 0x01
 
   r = (struct run*)pa;
 
