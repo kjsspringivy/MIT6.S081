@@ -292,6 +292,27 @@ freewalk(pagetable_t pagetable)
   kfree((void*)pagetable);
 }
 
+void _vmprint(pagetable_t pagetable, int level){
+  for(int i=0; i<512; i++){
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      for(int j=level; j<=2; j++) printf("..");
+      uint64 child = PTE2PA(pte);
+      printf("%d: pte %p pa %p\n", i, pte, child);
+      if((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        _vmprint((pagetable_t)child, level-1);
+      }
+    }
+  }
+}
+
+// 打印页表信息
+void vmprint(pagetable_t pagetable) {
+  printf("page table %p\n", pagetable);
+  _vmprint(pagetable, 2);
+}
+
+
 // Free user memory pages,
 // then free page-table pages.
 // 清理并释放一个用户进程的所有内存资源

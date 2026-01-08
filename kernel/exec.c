@@ -117,6 +117,11 @@ exec(char *path, char **argv)  // path和argv都是内核虚拟地址=物理地�
   p->trapframe->sp = sp; // initial stack pointer
   proc_freepagetable(oldpagetable, oldsz);
 
+  // 打印第一个进程(init)的页表信息
+  if(p->pid == 1){
+    vmprint(pagetable);
+  }
+
   return argc; // this ends up in a0, the first argument to main(argc, argv)
 
  bad:
