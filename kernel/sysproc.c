@@ -81,6 +81,31 @@ int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 start_va;  // 要检查的起始虚拟地址
+  int len;  // 要检查的页数
+  uint64 user_mask_p;  // 存放结果的掩码地址
+  if(argaddr(0, &start_va) < 0)
+    return -1;
+  if(argint(1, &len) < 0)
+    return -1;
+  if(argaddr(2, &user_mask_p) < 0)
+    return -1;
+
+  start_va = PGROUNDDOWN(start_va);  // 对齐到页边界
+  uint64 mask = 0;
+  struct proc *p = myproc();
+  pagetable_t pagetable = p->pagetable;
+  for(int i=0; i<len; i++){
+    uint64 va = start_va + i*PGSIZE;
+    pte_t *pte = walk(pagetable, va, 0);
+    if(pte == 0 || (*pte & PTE_V) == 0) return -1;
+    if(*pte & PTE_A){
+      mask |= (1L << i);
+      *pte &= ~PTE_A;  // 清除访问位
+    }      
+  }
+  if(copyout(pagetable, user_mask_p, (char*)&mask, sizeof(mask)) < 0)
+    return -1;
   return 0;
 }
 #endif
