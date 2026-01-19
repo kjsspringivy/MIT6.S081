@@ -117,6 +117,7 @@ printf(char *fmt, ...)
 void
 panic(char *s)
 {
+  backtrace();
   pr.locking = 0;
   printf("panic: ");
   printf(s);
@@ -131,4 +132,16 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
   pr.locking = 1;
+}
+
+void backtrace(void) {
+  uint64 fp = r_fp();
+  uint64 top = PGROUNDUP(fp);  // 当前栈最高地址（下一页的起始地址）
+  uint64 bottom = PGROUNDDOWN(fp);  // 当前栈最低地址
+  printf("backtrace:\n");
+  while (fp>bottom && fp<top) {  // top 是usertrap的地址，栈帧里保存函数返回地址，是上个函数，无意义
+    uint64 ra = *(uint64*)(fp-8);
+    printf("%p\n", ra);
+    fp = *(uint64*)(fp-16);
+  }
 }

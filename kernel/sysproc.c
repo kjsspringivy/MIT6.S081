@@ -54,7 +54,7 @@ sys_sbrk(void)
 
 uint64
 sys_sleep(void)
-{
+{ backtrace();
   int n;
   uint ticks0;
 
