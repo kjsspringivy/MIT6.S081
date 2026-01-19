@@ -84,7 +84,7 @@ enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
 struct proc {
-  struct spinlock lock;
+  struct spinlock lock;        // Lock to protect this process's state
 
   // p->lock must be held when using these:
   enum procstate state;        // Process state
@@ -97,7 +97,7 @@ struct proc {
   struct proc *parent;         // Parent process
 
   // these are private to the process, so p->lock need not be held.
-  uint64 kstack;               // Virtual address of kernel stack
+  uint64 kstack;               // Virtual address of kernel stack 栈底地址
   uint64 sz;                   // Size of process memory (bytes)
   pagetable_t pagetable;       // User page table
   struct trapframe *trapframe; // data page for trampoline.S

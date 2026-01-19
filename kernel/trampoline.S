@@ -7,13 +7,13 @@
 	#
 	# kernel.ld causes this to be aligned
         # to a page boundary.
-        #
+        # 放在trampsec的特殊段中，方便连接器将其对齐到页边界
 	.section trampsec
-.globl trampoline
+.globl trampoline  # 全局符号，这样内核中的C代码/汇编可以看到并引用这个地址（虚拟地址）
 trampoline:
-.align 4
+.align 4  # 地址对其，确保下一条指令的地址是4字节的倍数
 .globl uservec
-uservec:    
+uservec:  # 写入stvec寄存器的地址
 	#
         # trap.c sets stvec to point here, so
         # traps from user space start here,
@@ -29,7 +29,7 @@ uservec:
         csrrw a0, sscratch, a0
 
         # save the user registers in TRAPFRAME
-        sd ra, 40(a0)
+        sd ra, 40(a0)  # a0作为基地址，保存进trapframe，40对应地址偏移量
         sd sp, 48(a0)
         sd gp, 56(a0)
         sd tp, 64(a0)
@@ -65,7 +65,7 @@ uservec:
         sd t0, 112(a0)
 
         # restore kernel stack pointer from p->trapframe->kernel_sp
-        ld sp, 8(a0)
+        ld sp, 8(a0)  # 加载栈，将8(a0) 加载到sp
 
         # make tp hold the current hartid, from p->trapframe->kernel_hartid
         ld tp, 32(a0)
@@ -90,7 +90,7 @@ userret:
         # switch from kernel to user.
         # usertrapret() calls here.
         # a0: TRAPFRAME, in user page table.
-        # a1: user page table, for satp.
+        # a1: user page table, for satp. usertrapret的设置
 
         # switch to the user page table.
         csrw satp, a1
@@ -98,7 +98,7 @@ userret:
 
         # put the saved user a0 in sscratch, so we
         # can swap it with our a0 (TRAPFRAME) in the last step.
-        ld t0, 112(a0)
+        ld t0, 112(a0)  # 将a0读出来，放到t0
         csrw sscratch, t0
 
         # restore all but a0 from TRAPFRAME
