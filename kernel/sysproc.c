@@ -95,3 +95,28 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+// Set up alarm: arranges to call handler every interval ticks.
+uint64 sys_sigalarm(void) {
+  int interval;
+  uint64 handler;
+  struct proc *p = myproc();
+  
+  if (argint(0, &interval) < 0)
+    return -1;
+  if (argaddr(1, &handler) < 0)
+    return -1;
+  p->alarm_interval = interval;
+  p->alarm_handler = handler;
+  p->ticks_counter = 0;
+
+  return 0;
+}
+
+uint64 sys_sigreturn(void){
+  struct proc *p = myproc();
+  // restore saved trapframe
+  *(p->trapframe) = *(p->alarm_trapframe);
+  p->in_handler = 0;
+  return p->trapframe->a0;
+}

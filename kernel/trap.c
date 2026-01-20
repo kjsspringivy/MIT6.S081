@@ -85,8 +85,23 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    if (p->alarm_interval !=0){
+      p->ticks_counter++;
+      if (p->ticks_counter >= p->alarm_interval){
+        // 时间到，触发用户态 alarm handler
+        if (p->in_handler == 0){  // 非重入状态才处理
+          p->in_handler = 1;
+          // 保存当前用户态 trapframe 到 alarm_trapframe
+          *(p->alarm_trapframe) = *(p->trapframe);
+          // 设置用户态 pc 到 alarm_handler
+          p->trapframe->epc = p->alarm_handler;
+          p->ticks_counter = 0;
+        }
+      }
+    }
     yield();
+  }
 
   usertrapret();
 }
