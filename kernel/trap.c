@@ -67,6 +67,16 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+  } else if(r_scause() == 15) {  // Store Page Fault
+    uint64 va = r_stval();  // 出错的虚拟地址
+    if(va >= MAXVA || va==0){
+      printf("usertrap(): Store Page Fault. va is not valid. pid=%d\n", p->pid);
+      p->killed = 1;
+    }
+    if(cowalloc(p->pagetable, va) < 0) {
+      printf("usertrap(): cowalloc failed. pid=%d\n", p->pid);
+      p->killed = 1;
+    }
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());

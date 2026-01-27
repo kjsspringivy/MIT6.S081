@@ -303,7 +303,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
+  // char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -312,13 +312,21 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
+    /* 复制内存
     if((mem = kalloc()) == 0)
       goto err;
     memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    */
+    if(flags & PTE_W){
+      flags = (flags & ~PTE_W) | PTE_COW;
+      *pte = (*pte & ~PTE_W) | PTE_COW;
+    }
+
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
+      // kfree(mem);
       goto err;
     }
+    kref_inc((void*)pa);
   }
   return 0;
 
@@ -347,15 +355,25 @@ int
 copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 {
   uint64 n, va0, pa0;
+  pte_t *pte;
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
+    n = PGSIZE - (dstva - va0);
+    if(n > len)
+    n = len;
+
+    if(va0 >= MAXVA)
+      return -1;
+    pte = walk(pagetable, va0, 0);
+    if(pte && (*pte & PTE_V) && (*pte & PTE_COW)) {
+      if(cowalloc(pagetable, va0) != 0)
+        return -1;
+    }
+
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
-    n = PGSIZE - (dstva - va0);
-    if(n > len)
-      n = len;
     memmove((void *)(pa0 + (dstva - va0)), src, n);
 
     len -= n;
@@ -431,4 +449,30 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+int cowalloc(pagetable_t pagetable, uint64 va) {
+  uint64 pa;
+  pte_t *pte;
+  uint flags;
+  char *mem;
+  if(va >= MAXVA)
+    return -1;
+  if((pte = walk(pagetable, va, 0))==0)
+    return -1;
+  if((*pte & PTE_V) == 0)
+    return -1;
+  if((*pte & PTE_U)==0)
+    return -1;
+  if((*pte & PTE_COW)==0)
+    return -1;
+  pa = PTE2PA(*pte);
+  if((mem = kalloc()) == 0)
+    return -1;
+  memmove(mem, (char*)pa, PGSIZE);
+  flags = PTE_FLAGS(*pte);
+  flags = (flags & ~PTE_COW) | PTE_W;
+  *pte = PA2PTE((uint64)mem) | flags;
+  kfree((void*)pa);
+  return 0;
 }

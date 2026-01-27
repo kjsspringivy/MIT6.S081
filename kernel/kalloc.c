@@ -11,12 +11,17 @@
 
 void freerange(void *pa_start, void *pa_end);
 
-extern char end[]; // first address after kernel.
-                   // defined by kernel.ld.
+extern char end[]; // first address after kernel. defined by kernel.ld.
 
 struct run {
   struct run *next;
 };
+
+struct ref {
+  struct spinlock lock;
+  int count[PHYSTOP/PGSIZE];
+} ref;
+#define PA2INDEX(pa) (((uint64)(pa)) / PGSIZE)
 
 struct {
   struct spinlock lock;
@@ -27,6 +32,13 @@ void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&ref.lock, "ref");
+  acquire(&ref.lock);
+  for(int i=0; i<PHYSTOP/PGSIZE; i++) {
+    ref.count[i] = 1;
+  }
+  release(&ref.lock);
+
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -50,6 +62,9 @@ kfree(void *pa)
 
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
+
+  if(kref_dec(pa)>0)
+    return;
 
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
@@ -76,7 +91,38 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
+    acquire(&ref.lock);
+    ref.count[PA2INDEX(r)]=1;
+    release(&ref.lock);
+  }
   return (void*)r;
+}
+
+// 增加引用次数，返回引用次数
+int kref_inc(void *pa) {
+  int c;
+  acquire(&ref.lock);
+  c = ++ref.count[PA2INDEX(pa)];
+  release(&ref.lock);
+  return c;
+}
+
+// 减少引用次数，返回引用次数
+int kref_dec(void *pa) {
+  int c;
+  acquire(&ref.lock);
+  c= --ref.count[PA2INDEX(pa)];
+  release(&ref.lock);
+  return c;
+}
+
+// 获取引用次数，返回引用次数
+int kref_get(void *pa) {
+  int c;
+  acquire(&ref.lock);
+  c = ref.count[PA2INDEX(pa)];
+  release(&ref.lock);
+  return c;
 }
