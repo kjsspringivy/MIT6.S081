@@ -47,38 +47,34 @@ struct {
   // input
 #define INPUT_BUF 128
   char buf[INPUT_BUF];
-  uint r;  // Read index
+  uint r;  // Read index 一直累加，因此下面都是取模运算
   uint w;  // Write index
   uint e;  // Edit index
 } cons;
 
-//
 // user write()s to the console go here.
-//
-int
-consolewrite(int user_src, uint64 src, int n)
-{
+int consolewrite(int user_src, uint64 src, int n) {  
+  // user_scr: src是否为用户虚拟地址/内核地址
+  // src: 数据源地址
+  // n: 要写入的字节数
   int i;
-
   for(i = 0; i < n; i++){
     char c;
     if(either_copyin(&c, user_src, src+i, 1) == -1)
       break;
     uartputc(c);
   }
-
   return i;
 }
 
-//
 // user read()s from the console go here.
 // copy (up to) a whole input line to dst.
 // user_dist indicates whether dst is a user
 // or kernel address.
-//
-int
-consoleread(int user_dst, uint64 dst, int n)
-{
+int consoleread(int user_dst, uint64 dst, int n) {
+  // user_dst: dst是否为用户虚拟地址/内核地址
+  // dst: 目标内存地址
+  // n: 请求读取的最大字节数
   uint target;
   int c;
   char cbuf;
@@ -86,22 +82,20 @@ consoleread(int user_dst, uint64 dst, int n)
   target = n;
   acquire(&cons.lock);
   while(n > 0){
-    // wait until interrupt handler has put some
-    // input into cons.buffer.
+    // wait until interrupt handler has put some input into cons.buffer.
     while(cons.r == cons.w){
       if(myproc()->killed){
         release(&cons.lock);
         return -1;
       }
-      sleep(&cons.r, &cons.lock);
+      sleep(&cons.r, &cons.lock);  // 睡眠，释放锁，当有输入时被唤醒
     }
 
     c = cons.buf[cons.r++ % INPUT_BUF];
 
-    if(c == C('D')){  // end-of-file
+    if(c == C('D')){  // end-of-file 如果读到的是 Ctrl+D
       if(n < target){
-        // Save ^D for next time, to make sure
-        // caller gets a 0-byte result.
+        // Save ^D for next time, to make sure caller gets a 0-byte result.
         cons.r--;
       }
       break;
@@ -116,8 +110,7 @@ consoleread(int user_dst, uint64 dst, int n)
     --n;
 
     if(c == '\n'){
-      // a whole line has arrived, return to
-      // the user-level read().
+      // a whole line has arrived, return to the user-level read().
       break;
     }
   }
@@ -138,41 +131,41 @@ consoleintr(int c)
   acquire(&cons.lock);
 
   switch(c){
-  case C('P'):  // Print process list.
-    procdump();
-    break;
-  case C('U'):  // Kill line.
-    while(cons.e != cons.w &&
-          cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  case C('H'): // Backspace
-  case '\x7f':
-    if(cons.e != cons.w){
-      cons.e--;
-      consputc(BACKSPACE);
-    }
-    break;
-  default:
-    if(c != 0 && cons.e-cons.r < INPUT_BUF){
-      c = (c == '\r') ? '\n' : c;
-
-      // echo back to the user.
-      consputc(c);
-
-      // store for consumption by consoleread().
-      cons.buf[cons.e++ % INPUT_BUF] = c;
-
-      if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
-        // wake up consoleread() if a whole line (or end-of-file)
-        // has arrived.
-        cons.w = cons.e;
-        wakeup(&cons.r);
+    case C('P'):  // Print process list.
+      procdump();
+      break;
+    case C('U'):  // Kill line.
+      while(cons.e != cons.w &&
+            cons.buf[(cons.e-1) % INPUT_BUF] != '\n'){
+        cons.e--;
+        consputc(BACKSPACE);
       }
-    }
-    break;
+      break;
+    case C('H'): // Backspace
+    case '\x7f': // Delete
+      if(cons.e != cons.w){
+        cons.e--;
+        consputc(BACKSPACE);
+      }
+      break;
+    default:
+      if(c != 0 && cons.e-cons.r < INPUT_BUF){  // Ascii=0表示无效输入NULL
+        c = (c == '\r') ? '\n' : c;
+
+        // echo back to the user.
+        consputc(c);
+
+        // store for consumption by consoleread().
+        cons.buf[cons.e++ % INPUT_BUF] = c;
+
+        if(c == '\n' || c == C('D') || cons.e == cons.r+INPUT_BUF){
+          // wake up consoleread() if a whole line (or end-of-file)
+          // has arrived.
+          cons.w = cons.e;
+          wakeup(&cons.r);
+        }
+      }
+      break;
   }
   
   release(&cons.lock);

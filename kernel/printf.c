@@ -20,14 +20,14 @@ volatile int panicked = 0;
 // lock to avoid interleaving concurrent printf's.
 static struct {
   struct spinlock lock;
-  int locking;
+  int locking;  // 是否启用锁
 } pr;
 
-static char digits[] = "0123456789abcdef";
+static char digits[] = "0123456789abcdef";  // 作为查找表，用于将数值转换为对应的ASCLL字符。
 
-static void
-printint(int xx, int base, int sign)
-{
+static void printint(int xx, int base, int sign) {
+  // 将一个整数xx按照指定的进制base打印出来。
+  // 如果sign>0且xx为负数，则打印负号。
   char buf[16];
   int i;
   uint x;
@@ -49,9 +49,8 @@ printint(int xx, int base, int sign)
     consputc(buf[i]);
 }
 
-static void
-printptr(uint64 x)
-{
+static void printptr(uint64 x) {
+  // 打印一个64位的无符号整数（指针/地址），格式为16进制
   int i;
   consputc('0');
   consputc('x');
@@ -60,21 +59,20 @@ printptr(uint64 x)
 }
 
 // Print to the console. only understands %d, %x, %p, %s.
-void
-printf(char *fmt, ...)
-{
-  va_list ap;
-  int i, c, locking;
+void printf(char *fmt, ...) {
+  // fmt: 格式字符串，类似C语言标准库中的printf函数
+  va_list ap;  // 可变参数列表
+  int i, c, locking;  // locking: 是否启用锁
   char *s;
 
   locking = pr.locking;
   if(locking)
     acquire(&pr.lock);
 
-  if (fmt == 0)
+  if(fmt == 0)
     panic("null fmt");
 
-  va_start(ap, fmt);
+  va_start(ap, fmt);  // 初始化ap，使其指向fmt的第一个可变参数
   for(i = 0; (c = fmt[i] & 0xff) != 0; i++){
     if(c != '%'){
       consputc(c);
@@ -85,7 +83,7 @@ printf(char *fmt, ...)
       break;
     switch(c){
     case 'd':
-      printint(va_arg(ap, int), 10, 1);
+      printint(va_arg(ap, int), 10, 1);  // va_arg(ap, type): 从参数列表中获取下一个参数，并将其视为type类型
       break;
     case 'x':
       printint(va_arg(ap, int), 16, 1);
@@ -117,12 +115,12 @@ printf(char *fmt, ...)
 void
 panic(char *s)
 {
-  pr.locking = 0;
+  pr.locking = 0;  // 禁用锁，以防止死锁
   printf("panic: ");
   printf(s);
   printf("\n");
   panicked = 1; // freeze uart output from other CPUs
-  for(;;)
+  for(;;)  // 让系统停在这里，死机状态，等待重启
     ;
 }
 
