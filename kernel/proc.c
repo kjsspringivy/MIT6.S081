@@ -436,14 +436,14 @@ wait(uint64 addr)
 //    via swtch back to the scheduler.
 void
 scheduler(void)
-{
+{  // 从调度器进入进程
   struct proc *p;
   struct cpu *c = mycpu();
   
-  c->proc = 0;
-  for(;;){
+  c->proc = 0;  // 确保当前cpu没有关联任何进程
+  for(;;){  // 调度器永远不会退出
     // Avoid deadlock by ensuring that devices can interrupt.
-    intr_on();
+    intr_on();  // 开启中断
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
@@ -453,7 +453,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        swtch(&c->context, &p->context);
+        swtch(&c->context, &p->context);  // swtch结束后，进入调度器线程，原进程p已经不占用任何cpu了
 
         // Process is done running for now.
         // It should have changed its p->state before coming back.
@@ -473,21 +473,21 @@ scheduler(void)
 // there's no process.
 void
 sched(void)
-{
+{  // 从进程跳进调度器->进程
   int intena;
   struct proc *p = myproc();
 
-  if(!holding(&p->lock))
+  if(!holding(&p->lock))  // 必须持有进程锁
     panic("sched p->lock");
-  if(mycpu()->noff != 1)
+  if(mycpu()->noff != 1)  // 当前cpu的持锁数量，只能持有p->lock一把锁
     panic("sched locks");
   if(p->state == RUNNING)
     panic("sched running");
-  if(intr_get())
+  if(intr_get())  // 必须是关中断状态，因为持有p->lock锁
     panic("sched interruptible");
 
-  intena = mycpu()->intena;
-  swtch(&p->context, &mycpu()->context);
+  intena = mycpu()->intena;  // 获取锁之前的是否允许中断
+  swtch(&p->context, &mycpu()->context);  // 当前进程的被保存到p->context，恢复当前cpu的调度器的上下文
   mycpu()->intena = intena;
 }
 

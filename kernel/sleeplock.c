@@ -40,9 +40,8 @@ releasesleep(struct sleeplock *lk)
   release(&lk->lk);
 }
 
-int
-holdingsleep(struct sleeplock *lk)
-{
+int holdingsleep(struct sleeplock *lk) {
+  // 断言和安全检查
   int r;
   
   acquire(&lk->lk);
@@ -50,6 +49,3 @@ holdingsleep(struct sleeplock *lk)
   release(&lk->lk);
   return r;
 }
-
-
-
