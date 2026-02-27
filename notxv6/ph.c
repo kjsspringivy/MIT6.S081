@@ -17,13 +17,12 @@ struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
 
+pthread_mutex_t lock;
 
-double
-now()
-{
- struct timeval tv;
- gettimeofday(&tv, 0);
- return tv.tv_sec + tv.tv_usec / 1000000.0;
+double now() {
+  struct timeval tv;
+  gettimeofday(&tv, 0);
+  return tv.tv_sec + tv.tv_usec / 1000000.0;
 }
 
 static void 
@@ -37,37 +36,38 @@ insert(int key, int value, struct entry **p, struct entry *n)
 }
 
 static 
-void put(int key, int value)
+void put(int key, int value)  // 将key-value放入链表中
 {
-  int i = key % NBUCKET;
+  int i = key % NBUCKET;  // 计算哈希值，决定放在哪个桶
 
   // is the key already present?
   struct entry *e = 0;
+  pthread_mutex_lock(&lock);
   for (e = table[i]; e != 0; e = e->next) {
     if (e->key == key)
       break;
   }
   if(e){
-    // update the existing key.
+    // update the existing key. key存在。更新value
     e->value = value;
   } else {
-    // the new is new.
+    // the new is new. key不在，插入新节点
     insert(key, value, &table[i], table[i]);
   }
-
+  pthread_mutex_unlock(&lock);
 }
 
 static struct entry*
-get(int key)
+get(int key)  // 查找key对应的值
 {
   int i = key % NBUCKET;
-
-
+  
   struct entry *e = 0;
+  pthread_mutex_lock(&lock);
   for (e = table[i]; e != 0; e = e->next) {
     if (e->key == key) break;
   }
-
+  pthread_mutex_unlock(&lock);
   return e;
 }
 
@@ -75,7 +75,7 @@ static void *
 put_thread(void *xa)
 {
   int n = (int) (long) xa; // thread number
-  int b = NKEYS/nthread;
+  int b = NKEYS/nthread;  // 计算每个线程的任务量
 
   for (int i = 0; i < b; i++) {
     put(keys[b*n + i], n);
@@ -101,6 +101,7 @@ get_thread(void *xa)
 int
 main(int argc, char *argv[])
 {
+  pthread_mutex_init(&lock, NULL);
   pthread_t *tha;
   void *value;
   double t1, t0;
