@@ -17,7 +17,7 @@ struct entry *table[NBUCKET];
 int keys[NKEYS];
 int nthread = 1;
 
-pthread_mutex_t lock;
+pthread_mutex_t locks[NBUCKET];
 
 double now() {
   struct timeval tv;
@@ -42,19 +42,21 @@ void put(int key, int value)  // 将key-value放入链表中
 
   // is the key already present?
   struct entry *e = 0;
-  pthread_mutex_lock(&lock);
+  pthread_mutex_lock(&locks[i]);
   for (e = table[i]; e != 0; e = e->next) {
     if (e->key == key)
       break;
   }
+  
   if(e){
     // update the existing key. key存在。更新value
     e->value = value;
+    pthread_mutex_unlock(&locks[i]);
   } else {
     // the new is new. key不在，插入新节点
     insert(key, value, &table[i], table[i]);
+    pthread_mutex_unlock(&locks[i]);
   }
-  pthread_mutex_unlock(&lock);
 }
 
 static struct entry*
@@ -63,11 +65,10 @@ get(int key)  // 查找key对应的值
   int i = key % NBUCKET;
   
   struct entry *e = 0;
-  pthread_mutex_lock(&lock);
   for (e = table[i]; e != 0; e = e->next) {
-    if (e->key == key) break;
+    if (e->key == key) 
+      break;
   }
-  pthread_mutex_unlock(&lock);
   return e;
 }
 
@@ -101,7 +102,9 @@ get_thread(void *xa)
 int
 main(int argc, char *argv[])
 {
-  pthread_mutex_init(&lock, NULL);
+  for(int i=0; i<NBUCKET; i++){
+    pthread_mutex_init(&locks[i], NULL);
+  }
   pthread_t *tha;
   void *value;
   double t1, t0;
