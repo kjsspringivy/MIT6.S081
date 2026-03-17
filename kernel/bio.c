@@ -43,6 +43,7 @@ binit(void)
   // Create linked list of buffers
   bcache.head.prev = &bcache.head;
   bcache.head.next = &bcache.head;
+  // 头插法，将每个新创建的 buf 插入到链表头部，保持链表按照最近使用的顺序排列。
   for(b = bcache.buf; b < bcache.buf+NBUF; b++){
     b->next = bcache.head.next;
     b->prev = &bcache.head;
@@ -55,13 +56,12 @@ binit(void)
 // Look through buffer cache for block on device dev.
 // If not found, allocate a buffer.
 // In either case, return locked buffer.
-static struct buf*
-bget(uint dev, uint blockno)
-{
+static struct buf* bget(uint dev, uint blockno) {
+  // dev：设备号，blockno：块号 上层函数可以获取。
+  // return: 一个指向 buf 结构的指针，表示对应设备和块号的缓冲区。
   struct buf *b;
 
   acquire(&bcache.lock);
-
   // Is the block already cached?
   for(b = bcache.head.next; b != &bcache.head; b = b->next){
     if(b->dev == dev && b->blockno == blockno){
@@ -75,7 +75,7 @@ bget(uint dev, uint blockno)
   // Not cached.
   // Recycle the least recently used (LRU) unused buffer.
   for(b = bcache.head.prev; b != &bcache.head; b = b->prev){
-    if(b->refcnt == 0) {
+    if(b->refcnt == 0) {  // 去掉一个ref=0的缓冲块，换成新的块
       b->dev = dev;
       b->blockno = blockno;
       b->valid = 0;
@@ -89,23 +89,21 @@ bget(uint dev, uint blockno)
 }
 
 // Return a locked buf with the contents of the indicated block.
-struct buf*
-bread(uint dev, uint blockno)
-{
+struct buf* bread(uint dev, uint blockno) {
+  // dev：设备号，blockno：块号 上层函数可以获取。
+  // return: 一个指向 buf 结构的指针.  
   struct buf *b;
-
-  b = bget(dev, blockno);
+  b = bget(dev, blockno);  // 带睡眠锁
   if(!b->valid) {
-    virtio_disk_rw(b, 0);
+    virtio_disk_rw(b, 0);  // 参数 0 表示 READ（读操作）。这个函数会阻塞当前进程，直到磁盘控制器把数据搬运到内存里。
     b->valid = 1;
   }
   return b;
 }
 
 // Write b's contents to disk.  Must be locked.
-void
-bwrite(struct buf *b)
-{
+void bwrite(struct buf *b){
+  // 将缓冲区数据同步刷新到磁盘
   if(!holdingsleep(&b->lock))
     panic("bwrite");
   virtio_disk_rw(b, 1);
@@ -113,9 +111,8 @@ bwrite(struct buf *b)
 
 // Release a locked buffer.
 // Move to the head of the most-recently-used list.
-void
-brelse(struct buf *b)
-{
+void brelse(struct buf *b){
+  // 进程使用完数据块后，释放锁并归还buf资源
   if(!holdingsleep(&b->lock))
     panic("brelse");
 
@@ -132,19 +129,18 @@ brelse(struct buf *b)
     bcache.head.next->prev = b;
     bcache.head.next = b;
   }
-  
   release(&bcache.lock);
 }
 
-void
-bpin(struct buf *b) {
+void bpin(struct buf *b) {
+  // 将缓冲区固定在内存中，防止被其他进程回收
   acquire(&bcache.lock);
   b->refcnt++;
   release(&bcache.lock);
 }
 
-void
-bunpin(struct buf *b) {
+void bunpin(struct buf *b) {
+  // 取消对缓冲区的固定，使其可以被其他进程回收
   acquire(&bcache.lock);
   b->refcnt--;
   release(&bcache.lock);
