@@ -97,29 +97,29 @@
 #define E1000_TXD_STAT_DD    0x00000001 /* Descriptor Done */
 
 // [E1000 3.3.3]
-struct tx_desc
-{
-  uint64 addr;
-  uint16 length;
-  uint8 cso;
-  uint8 cmd;
-  uint8 status;
-  uint8 css;
-  uint16 special;
+struct tx_desc {
+  // 发送描述符，当系统想要发送一个网络数据包时，会填写这个结构体，通知网卡硬件去处理
+  uint64 addr;            // 数据包在内存中的地址 
+  uint16 length;          // 数据包的长度
+  uint8 cso;              // 校验和偏移量（offset），用于告诉硬件如何帮忙计算和填入网络检验和
+  uint8 cmd;              // 命令位，系统告诉硬件怎么发包
+  uint8 status;           // 状态位，当硬件成功发送完这个包后，会主动将该字段相应的位置位
+  uint8 css;              // 校验和偏移量（start），用于告诉硬件如何帮忙计算和填入网络检验和
+  uint16 special;         // 特殊信息，通常用于插入 VLAN 标签等。
 };
 
 /* Receive Descriptor bit definitions [E1000 3.2.3.1] */
-#define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
-#define E1000_RXD_STAT_EOP      0x02    /* End of Packet */
+#define E1000_RXD_STAT_DD       0x01    /* Descriptor Done 描述符完成*/  
+#define E1000_RXD_STAT_EOP      0x02    /* End of Packet 数据包结束*/
 
 // [E1000 3.2.3]
 struct rx_desc
 {
-  uint64 addr;       /* Address of the descriptor's data buffer */
-  uint16 length;     /* Length of data DMAed into data buffer */
-  uint16 csum;       /* Packet checksum */
-  uint8 status;      /* Descriptor status */
-  uint8 errors;      /* Descriptor Errors */
-  uint16 special;
+  uint64 addr;       /* Address of the descriptor's data buffer */  // 系统提前准备好的、用于接收网卡数据的内存空缓冲区
+  uint16 length;     /* Length of data DMAed into data buffer */    // 由网卡硬件填入，当网卡把收到的包写入 addr 后，记录实际收到的字节数
+  uint16 csum;       /* Packet checksum */                          // 硬件计算的数据包校验和
+  uint8 status;      /* Descriptor status */                        // 由网卡硬件填入，判断是否有包到达
+  uint8 errors;      /* Descriptor Errors */                        // 由网卡硬件填入，记录接收过程中发生的错误类型
+  uint16 special;                                                   // 用于获取硬件提取的特殊信息（如 VLAN 标签）
 };
 

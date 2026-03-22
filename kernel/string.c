@@ -28,8 +28,8 @@ memcmp(const void *v1, const void *v2, uint n)
 }
 
 void*
-memmove(void *dst, const void *src, uint n)
-{
+memmove(void *dst, const void *src, uint n) {
+  // 遇到\0不会停，死板的复制n个字节。用于移动内存
   const char *s;
   char *d;
 
@@ -68,8 +68,8 @@ strncmp(const char *p, const char *q, uint n)
 }
 
 char*
-strncpy(char *s, const char *t, int n)
-{
+strncpy(char *s, const char *t, int n) {
+  // 最多复制n个，遇到\0就停，剩余部分用\0填充。
   char *os;
 
   os = s;

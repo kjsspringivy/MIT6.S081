@@ -12,8 +12,8 @@
 // mkfs computes the super block and builds an initial file system. The
 // super block describes the disk layout:
 struct superblock {
-  uint magic;        // Must be FSMAGIC
-  uint size;         // Size of file system image (blocks)
+  uint magic;        // Must be FSMAGIC 魔数
+  uint size;         // Size of file system image (blocks) 磁盘的总大小，以块为单位
   uint nblocks;      // Number of data blocks
   uint ninodes;      // Number of inodes.
   uint nlog;         // Number of log blocks
@@ -48,6 +48,7 @@ struct dinode {
 #define BPB           (BSIZE*8)
 
 // Block of free map containing bit for block b
+// 计算磁盘块b所在的位图块号
 #define BBLOCK(b, sb) ((b)/BPB + sb.bmapstart)
 
 // Directory is a file containing a sequence of dirent structures.
