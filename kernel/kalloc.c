@@ -100,7 +100,7 @@ kalloc(void)
         break;
       }
       release(&kmem[i].lock);
-  }
+    }
   }
   
   pop_off();  // 恢复中断
