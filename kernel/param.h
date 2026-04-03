@@ -23,5 +23,5 @@
 #endif
 #endif
 #define MAXPATH      128   // maximum file path name
-
+#define MAXSYMLINKS   10     // maximum number of symlinks that can be followed in a path 
 
