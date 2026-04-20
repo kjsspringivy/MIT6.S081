@@ -579,10 +579,11 @@ uint64 sys_munmap(void) {
   uvmunmap(p->pagetable, a, npages, 1);
 
   // 释放 VMA
-  v->length -= length;
   if(addr == v->addr){
     v->addr += length;
+    v->offset += length;
   }
+  v->length -= length;
   if(v->length == 0){
     fileclose(v->f);
     v->valid = 0;

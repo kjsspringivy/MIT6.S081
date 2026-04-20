@@ -124,6 +124,9 @@ allocproc(void)
   return 0;
 
 found:
+  #ifdef LAB_MMAP
+  for(int i = 0; i < NVMA; i++) p->vmas[i].valid = 0;
+  #endif
   p->pid = allocpid();
   p->state = USED;
 
@@ -336,6 +339,8 @@ fork(void)
           }
         }
       }
+    } else {
+      np->vmas[i].valid = 0;
     }
   }
   #endif
