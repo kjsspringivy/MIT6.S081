@@ -6,6 +6,13 @@
 #include "proc.h"
 #include "defs.h"
 
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "fcntl.h"
+
+extern pte_t *walk(pagetable_t pagetable, uint64 va, int alloc);
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -303,6 +310,36 @@ fork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  #ifdef LAB_MMAP
+  // 复制父进程的 VMA 信息
+  for(i = 0; i < NVMA; i++){
+    if(p->vmas[i].valid){
+      np->vmas[i] = p->vmas[i];
+      filedup(np->vmas[i].f); // 增加映射文件的引用计数
+    
+      for(uint64 a =p->vmas[i].addr; a<p->vmas[i].addr + p->vmas[i].length; a+=PGSIZE) {
+        pte_t *pte = walk(p->pagetable, a, 0);
+        if(pte !=0 && (*pte & PTE_V)) {
+          uint64 pa = PTE2PA(*pte);
+          char *mem = kalloc();
+          if(mem == 0){
+            freeproc(np);
+            release(&np->lock);
+            return -1;
+          }
+          memmove(mem, (char*)pa, PGSIZE);
+          if(mappages(np->pagetable, a, PGSIZE, (uint64)mem, PTE_FLAGS(*pte)) < 0){
+            kfree(mem);
+            freeproc(np);
+            release(&np->lock);
+            return -1;
+          }
+        }
+      }
+    }
+  }
+  #endif
+
   pid = np->pid;
 
   release(&np->lock);
@@ -333,7 +370,7 @@ reparent(struct proc *p)
   }
 }
 
-// Exit the current process.  Does not return.
+// Exit the current process. Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait().
 void
@@ -352,6 +389,34 @@ exit(int status)
       p->ofile[fd] = 0;
     }
   }
+  #ifdef LAB_MMAP
+  for(int i=0; i<NVMA; i++){
+    if(p->vmas[i].valid){
+      if(p->vmas[i].flags & MAP_SHARED){ 
+        for(uint64 a = p->vmas[i].addr; a<p->vmas[i].addr + p->vmas[i].length; a+=PGSIZE) {
+          pte_t *pte = walk(p->pagetable, a, 0);
+          if(pte !=0 && (*pte & PTE_V)) {
+            begin_op();
+            ilock(p->vmas[i].f->ip);
+            int write_off = p->vmas[i].offset + (a - p->vmas[i].addr);
+            int write_len = PGSIZE;
+            if(a + PGSIZE > p->vmas[i].addr + p->vmas[i].length) {
+              write_len = p->vmas[i].addr + p->vmas[i].length - a;
+            }
+            writei(p->vmas[i].f->ip, 1, a, write_off, write_len);
+            iunlock(p->vmas[i].f->ip);
+            end_op();
+          }
+        }
+      }
+      uint64 a = PGROUNDDOWN(p->vmas[i].addr);
+      int npages = (PGROUNDUP(p->vmas[i].addr + p->vmas[i].length) - a) / PGSIZE;
+      uvmunmap(p->pagetable, a, npages, 1);
+      fileclose(p->vmas[i].f);
+      p->vmas[i].valid = 0;
+    }
+  }
+  #endif
 
   begin_op();
   iput(p->cwd);

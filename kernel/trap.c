@@ -5,6 +5,10 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"
+#include "fcntl.h"
 
 struct spinlock tickslock;
 uint ticks;
@@ -67,7 +71,59 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } 
+  #ifdef LAB_MMAP 
+  else if(r_scause()==13 || r_scause()==15){
+    extern pte_t *walk(pagetable_t pagetable, uint64 va, int alloc);
+    // 捕获 Load Page Fault (13) 或 Store Page Fault (15)
+    uint64 va = r_stval();  // 获取导致缺页异常的虚拟地址
+    if(va >= MAXVA)
+      p->killed = 1;
+    // 检查是否属于某一个 VMA 的范围
+    struct vma *v = 0;
+    for(int i=0; i<NVMA; i++){
+      if(p->vmas[i].valid && va>=p->vmas[i].addr && va<(p->vmas[i].addr+p->vmas[i].length)){
+        v = &p->vmas[i];
+        break;
+      }
+    }
+    if(!v)
+      p->killed = 1;
+    else {
+      uint64 va0 = PGROUNDDOWN(va);
+      pte_t *pte = walk(p->pagetable, va0, 0);
+      if(pte && (*pte & PTE_V)){
+        // 已经被映射了，说明是权限问题，直接杀死进程
+        p->killed = 1;
+      } else {
+      void *pa = kalloc();
+      if(!pa){
+        p->killed = 1;
+      } 
+      else {
+        memset(pa, 0, PGSIZE);
+        // 从文件中读取这一页的数据
+        ilock(v->f->ip);
+        int read_off = v->offset + (va0 - v->addr);
+        readi(v->f->ip, 0, (uint64)pa, read_off, PGSIZE);
+        iunlock(v->f->ip);
+        // 映射权限
+        int flages = PTE_U;
+        if(v->prot & PROT_READ) flages |= PTE_R;
+        if(v->prot & PROT_WRITE) flages |= PTE_W;
+        if(v->prot & PROT_EXEC) flages |= PTE_X;
+
+        // 将物理页 pa 映射到虚拟地址 va0
+        if(mappages(p->pagetable, va0, PGSIZE, (uint64)pa, flages) != 0){
+          kfree(pa);
+          p->killed = 1;
+        }
+      }
+    }
+    }
+  }
+  #endif
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;

@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "memlayout.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -454,6 +455,8 @@ sys_exec(void)
   return -1;
 }
 
+
+
 uint64
 sys_pipe(void)
 {
@@ -484,3 +487,109 @@ sys_pipe(void)
   }
   return 0;
 }
+
+#ifdef LAB_MMAP
+extern pte_t *walk(pagetable_t pagetable, uint64 va, int alloc);
+uint64 sys_mmap(void) {
+  uint64 addr;
+  int length, prot, flags, fd, offset;
+  struct proc *p = myproc();
+  struct file *f;
+  struct vma *v = 0;
+  
+  if(argaddr(0, &addr)<0 || argint(1, &length)<0 ||
+     argint(2, &prot)<0 || argint(3, &flags)<0 ||
+     argfd(4, &fd, &f)<0 || argint(5, &offset)<0)
+    return -1;
+
+  // 检查文件权限是否与 mmap 要求匹配
+  if(!f->readable && (prot & PROT_READ)) return -1;
+  if(!f->writable && (prot & PROT_WRITE) && (flags & MAP_SHARED)) return -1;
+
+  // 寻找空闲的 VMA 槽位
+  for(int i=0; i<NVMA; i++){
+    if(p->vmas[i].valid == 0){ // 先将所有 VMA 标记为无效
+      v = &p->vmas[i];
+      break;
+    }
+  }
+  if(!v) return -1; // 没有空闲的 VMA
+  // 初始化 VMA
+  uint64 map_va = TRAPFRAME; // 映射地址必须页对齐
+  for(int i=0;i<NVMA;i++){
+    if(p->vmas[i].valid && p->vmas[i].addr < map_va)
+      map_va = p->vmas[i].addr;
+  }
+  map_va = PGROUNDDOWN(map_va - length);
+  if(map_va < p->sz) return -1; // 没有足够的地址空间
+  v->valid = 1;
+  v->addr = map_va;
+  v->length = length;
+  v->prot = prot;
+  v->flags = flags;
+  v->f = f;
+  v->offset = offset;
+  // 增加文件引用计数，确保文件在映射期间不会被关闭
+  filedup(f);
+  return map_va;
+}
+
+
+uint64 sys_munmap(void) {
+  uint64 addr;
+  int length;
+
+  if(argaddr(0, &addr) < 0 || argint(1, &length) < 0)
+  return -1;
+
+  struct proc *p = myproc();
+  struct vma *v = 0;
+
+  // 寻找对应的 VMA
+  for(int i=0; i<NVMA; i++){
+    if(p->vmas[i].valid && addr >= p->vmas[i].addr && addr < p->vmas[i].addr + p->vmas[i].length){
+      v = &p->vmas[i];
+      break;
+    }
+  }
+  if(!v) return -1; // 没有找到对应的 VMA
+
+  // MAP_SHARED 需要将修改写回文件
+  if(v->flags & MAP_SHARED){
+    uint64 unmap_start = PGROUNDDOWN(addr);
+    uint64 unmap_end =  PGROUNDUP(addr + length);
+    for(uint64 a = unmap_start; a<unmap_end; a+=PGSIZE) {
+      pte_t *pte = walk(p->pagetable, a, 0);
+      if(pte !=0 && (*pte & PTE_V)) {
+        begin_op();
+        ilock(v->f->ip);
+        int write_off = v->offset + (a - v->addr);
+        int write_len = PGSIZE;
+        if(a + PGSIZE > v->addr + v->length) {
+          write_len = v->addr + v->length - a;
+        }
+        writei(v->f->ip, 1, a, write_off, write_len);
+        iunlock(v->f->ip);
+        end_op();
+      }
+    }
+  }
+  uint64 a = PGROUNDDOWN(addr);
+  int npages = (PGROUNDUP(addr + length) - a) / PGSIZE;
+  uvmunmap(p->pagetable, a, npages, 1);
+
+  // 释放 VMA
+  v->length -= length;
+  if(addr == v->addr){
+    v->addr += length;
+  }
+  if(v->length == 0){
+    fileclose(v->f);
+    v->valid = 0;
+  }
+
+  return 0;
+
+}
+#endif
+

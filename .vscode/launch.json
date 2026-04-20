@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": false,
-      "cwd": "/home/kjs/xv6-labs-2021/kernel",
-      "program": "/home/kjs/xv6-labs-2021/kernel/build/Debug/outDebug",
+      "cwd": "/home/jinshankong/xv6-labs-2021",
+      "program": "/home/jinshankong/xv6-labs-2021/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
